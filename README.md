@@ -1,62 +1,133 @@
-# Arquitectura Medallion en Microsoft Fabric
+# Microsoft Fabric – Medallion Architecture
 
-Proyecto práctico de ingeniería de datos que implementa una arquitectura Medallion (Bronze, Silver y Gold) en Microsoft Fabric mediante Lakehouse, OneLake, Delta Lake, PySpark y Data Factory Pipelines.
+**Implementación práctica de una arquitectura Medallion (Bronze, Silver y Gold) utilizando Microsoft Fabric, Lakehouse, OneLake, Delta Lake, PySpark y Data Factory Pipelines.**
 
-> **Estado:** laboratorio funcional en entorno Microsoft Fabric Trial. En próximas iteraciones se incorporarán los notebooks exportados, datos ficticios y capturas del entorno.
+Este proyecto demuestra un flujo de ingeniería de datos de extremo a extremo: desde la ingesta de ficheros CSV hasta la generación de tablas analíticas organizadas en un modelo dimensional.
 
-## Arquitectura
+> **Estado del proyecto:** laboratorio funcional, ejecutado correctamente en un entorno Microsoft Fabric Trial. El repositorio se encuentra en evolución y se ampliará con notebooks exportados, datos de ejemplo y evidencias de ejecución.
 
-- **Bronze — `LH_DP600_Lab`:** CSV originales y tablas Delta de aterrizaje (`Bronze_Sales`, `Bronze_Customers`).
-- **Silver — `LH_Silver`:** datos tipados, depurados y validados (`Sales_Clean`, `Customers_Clean`).
-- **Gold — `LH_Gold`:** modelo dimensional analítico (`FactSales`, `DimCustomer`).
-- **Orquestación — `PL_Medallion_ETL`:** ejecuta los notebooks de transformación en secuencia.
+## 1. Objetivos del proyecto
+
+- Implementar una arquitectura Medallion con tres Lakehouses.
+- Transformar y validar datos mediante PySpark.
+- Persistir los datos en formato Delta Lake.
+- Construir una capa Gold con tablas de hechos y dimensiones.
+- Orquestar las transformaciones mediante un Data Factory Pipeline.
+- Documentar el flujo y las decisiones técnicas.
+
+## 2. Arquitectura
+
+La solución se organiza en tres capas de datos independientes:
+
+| Capa | Lakehouse | Contenido |
+|---|---|---|
+| Bronze | `LH_DP600_Lab` | CSV originales y tablas `Bronze_Sales`, `Bronze_Customers` |
+| Silver | `LH_Silver` | Tablas depuradas `Sales_Clean`, `Customers_Clean` |
+| Gold | `LH_Gold` | Modelo dimensional: `FactSales`, `DimCustomer` |
+
+### Diagrama de arquitectura
 
 ```mermaid
 flowchart TD
-    A[CSV de ventas y clientes] --> B[LH_DP600_Lab - Bronze]
-    B --> C[NB_Bronze_to_Silver]
-    C --> D[LH_Silver - Sales_Clean y Customers_Clean]
-    D --> E[NB_Silver_to_Gold]
-    E --> F[LH_Gold - FactSales y DimCustomer]
-    F --> G[Modelo semántico / Power BI]
-    H[PL_Medallion_ETL] -. orquesta .-> C
-    H -. orquesta .-> E
+    A["CSV de ventas y clientes"] --> B["LH_DP600_Lab - Bronze"]
+    B --> C["NB_Bronze_to_Silver"]
+    C --> D["LH_Silver - Silver"]
+    D --> E["NB_Silver_to_Gold"]
+    E --> F["LH_Gold - Gold"]
+    F --> G["FactSales"]
+    F --> H["DimCustomer"]
+    G --> I["Modelo semántico / Power BI"]
+    H --> I
+
+    P["PL_Medallion_ETL"] -. "Orquesta" .-> C
+    P -. "Orquesta tras éxito" .-> E
 ```
 
-## Tecnologías
+El pipeline `PL_Medallion_ETL` ejecuta los notebooks en secuencia, utilizando la dependencia de éxito entre ambas actividades.
 
-Microsoft Fabric Lakehouse · OneLake · Delta Lake · Apache Spark/PySpark · Data Factory Pipelines · Modelado dimensional.
+## 3. Tecnologías utilizadas
 
-## Flujo de datos
+- **Microsoft Fabric:** plataforma de analítica.
+- **OneLake:** almacenamiento unificado de datos.
+- **Lakehouse:** organización de datos por capas.
+- **Delta Lake:** persistencia transaccional de tablas.
+- **Apache Spark / PySpark:** lectura, transformación y escritura de datos.
+- **Data Factory Pipelines:** orquestación del proceso ETL.
+- **Modelado dimensional:** separación de hechos y dimensiones.
 
-1. Ingesta de CSV originales en Bronze.
-2. Persistencia de tablas Bronze en Delta.
-3. Limpieza y validación con PySpark para producir Silver.
-4. Construcción de hechos y dimensiones para Gold.
-5. Orquestación mediante un Pipeline.
+## 4. Flujo de datos
 
-## Modelo dimensional
+1. **Ingesta:** lectura de los CSV originales de ventas y clientes.
+2. **Bronze:** persistencia de los datos de aterrizaje en tablas Delta.
+3. **Silver:** conversión de tipos, eliminación de duplicados, validación de campos obligatorios y aplicación de reglas de calidad.
+4. **Gold:** selección y organización de los datos en tablas de hechos y dimensiones.
+5. **Orquestación:** ejecución secuencial de los notebooks mediante el pipeline.
 
-- `FactSales`: una fila por venta; contiene claves, atributos transaccionales y medidas.
-- `DimCustomer`: una fila por cliente; contiene atributos descriptivos.
-- Relación prevista en el modelo semántico: `DimCustomer[CustomerId]` (1) → `FactSales[CustomerId]` (*).
+## 5. Modelo dimensional
 
-## Ejecución
+La capa Gold contiene dos tablas:
 
-Este laboratorio se ejecuta dentro de Microsoft Fabric con los Lakehouses asociados y una sesión Spark disponible. Las rutas ABFS son específicas de cada entorno; no se incluyen identificadores de tenant, workspace o capacidad.
+- **FactSales:** datos transaccionales de ventas, claves, atributos y medidas como `Quantity`, `UnitPrice` y `TotalAmount`.
+- **DimCustomer:** información descriptiva de clientes, incluyendo nombre, ciudad y segmento.
 
-Consulta `docs/` y `pipelines/pipeline-design.md`.
+La relación prevista en el modelo semántico es:
 
-## Consideraciones
+`DimCustomer[CustomerId]` (1) → `FactSales[CustomerId]` (*)
 
-- Los datos publicados deben ser ficticios y no contener información personal.
-- `overwrite` se utilizó para hacer reproducible el laboratorio; producción requiere estrategia incremental, idempotencia, control de calidad y gestión de errores.
-- `TooManyRequestsForCapacity` (HTTP 430) indica que la capacidad no pudo admitir un trabajo Spark en ese momento; no implica necesariamente un error del código.
-- No publicar secretos, tokens, claves, identificadores privados ni rutas ABFS del entorno.
+Esta estructura permite analizar las ventas desde distintas perspectivas de cliente.
 
-## Próximas mejoras
+## 6. Resultados del laboratorio
 
-- Incorporar notebooks exportados desde Fabric (`.ipynb`).
-- Añadir CSV ficticios de muestra.
-- Incorporar capturas del Pipeline y tablas Delta.
-- Añadir dimensión calendario y pruebas de calidad.
+El proceso se ha ejecutado correctamente y ha generado las siguientes tablas:
+
+| Capa | Tabla | Registros |
+|---|---|---:|
+| Bronze | Bronze_Sales | 10 |
+| Bronze | Bronze_Customers | 6 |
+| Silver | Sales_Clean | 10 |
+| Silver | Customers_Clean | 6 |
+| Gold | FactSales | 10 |
+| Gold | DimCustomer | 6 |
+
+Los recuentos corresponden al conjunto de datos ficticio utilizado en el laboratorio.
+
+## 7. Decisiones técnicas y consideraciones
+
+- Se utilizan tres Lakehouses para separar responsabilidades y capas de procesamiento.
+- Las tablas persistentes se almacenan en formato Delta.
+- Las transformaciones se implementan mediante notebooks PySpark.
+- Se ha utilizado `overwrite` para facilitar la reproducibilidad del laboratorio. En un entorno productivo sería necesario evaluar cargas incrementales, idempotencia y estrategias de actualización.
+- Los errores `TooManyRequestsForCapacity` (HTTP 430) observados durante las primeras ejecuciones evidenciaron las limitaciones de capacidad y concurrencia del entorno Trial. Finalmente, el pipeline se ejecutó correctamente.
+- Las rutas ABFS y configuraciones específicas del entorno no se incluyen en el repositorio.
+
+## 8. Estructura del repositorio
+
+```text
+fabric-medallion-architecture/
+├── README.md
+├── docs/
+│   ├── architecture.md
+│   ├── data-flow.md
+│   ├── implementation-notes.md
+│   └── images/
+├── notebooks/
+├── data/
+│   └── sample/
+├── pipelines/
+│   └── pipeline-design.md
+└── .gitignore
+```
+
+## 9. Próximas mejoras
+
+- Incorporar los notebooks exportados desde Microsoft Fabric (`.ipynb`).
+- Añadir ficheros CSV ficticios para reproducir el laboratorio.
+- Documentar las reglas de calidad y las transformaciones PySpark.
+- Añadir capturas de los Lakehouses y de las ejecuciones del pipeline.
+- Incorporar una dimensión calendario.
+- Implementar pruebas de calidad de datos.
+- Explorar cargas incrementales y estrategias de actualización.
+
+---
+
+**Proyecto personal de aprendizaje y portfolio técnico – Microsoft Fabric / DP-600.**
