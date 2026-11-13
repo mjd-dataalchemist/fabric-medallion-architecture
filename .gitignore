@@ -1,0 +1,17 @@
+# Credenciales y configuración local
+.env
+*.pem
+*.key
+secrets/
+credentials/
+
+# Datos y resultados temporales
+*.parquet
+*.delta/
+.sparkStaging/
+__pycache__/
+.ipynb_checkpoints/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
