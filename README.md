@@ -63,18 +63,20 @@ El pipeline `PL_Medallion_ETL` ejecuta los notebooks en secuencia, utilizando la
 4. **Gold:** selección y organización de los datos en tablas de hechos y dimensiones.
 5. **Orquestación:** ejecución secuencial de los notebooks mediante el pipeline.
 
-## 5. Modelo dimensional
+## Modelo dimensional
 
-La capa Gold contiene dos tablas:
+La capa Gold contiene dos tablas Delta:
 
-- **FactSales:** datos transaccionales de ventas, claves, atributos y medidas como `Quantity`, `UnitPrice` y `TotalAmount`.
-- **DimCustomer:** información descriptiva de clientes, incluyendo nombre, ciudad y segmento.
+- **FactSales:** datos transaccionales de ventas.
+- **DimCustomer:** información descriptiva de clientes.
 
-La relación prevista en el modelo semántico es:
+Ambas tablas comparten la clave `CustomerId` y están preparadas para su integración en un modelo semántico de Power BI.
+
+Relación prevista:
 
 `DimCustomer[CustomerId]` (1) → `FactSales[CustomerId]` (*)
 
-Esta estructura permite analizar las ventas desde distintas perspectivas de cliente.
+La creación del modelo semántico y la configuración de las relaciones se abordarán en una siguiente fase del proyecto.
 
 ## 6. Resultados del laboratorio
 
