@@ -1,73 +1,163 @@
 # Microsoft Fabric – Medallion Architecture
 
-Implementación práctica de una arquitectura Medallion (Bronze, Silver y Gold) utilizando Microsoft Fabric, Lakehouse, OneLake, Delta Lake, PySpark y Data Factory Pipelines.
+PoC de ingeniería de datos con **Microsoft Fabric**, basada en una arquitectura Medallion (Bronze, Silver y Gold), utilizando Lakehouse, OneLake, Delta Lake, Apache Spark, PySpark y Data Factory Pipelines.
 
-Este proyecto demuestra un flujo de ingeniería de datos de extremo a extremo: desde la ingesta de ficheros CSV hasta la generación de tablas analíticas organizadas en un modelo dimensional.
+El proyecto implementa un flujo de procesamiento de extremo a extremo: desde la ingesta de ficheros CSV hasta la generación y validación de tablas analíticas organizadas en un modelo dimensional.
 
-**Estado del proyecto:** arquitectura Medallion implementada y validada en Microsoft Fabric Trial. Se han ejecutado correctamente los procesos Bronze → Silver → Gold mediante notebooks PySpark, generando las tablas analíticas esperadas. El repositorio incluye datos de ejemplo, notebooks exportados y documentación técnica para reproducir el laboratorio.
+**Estado:** PoC implementada y ejecutada correctamente en Microsoft Fabric Trial.
 
-## 0. Guía rápida de reproducción del laboratorio
+## Resumen del proyecto
 
-Esta guía permite reproducir el proyecto en un entorno propio de Microsoft Fabric utilizando los ficheros CSV y los notebooks incluidos en este repositorio.
+| Componente | Implementación |
+|---|---|
+| Plataforma | Microsoft Fabric |
+| Almacenamiento | OneLake |
+| Arquitectura | Medallion |
+| Lakehouses | 3 |
+| Procesamiento | Apache Spark / PySpark |
+| Formato de tablas | Delta Lake |
+| Notebooks | 4 |
+| Orquestación principal | Data Factory Pipeline |
+| Validaciones de calidad | 9 |
+| Modelo analítico | FactSales y DimCustomer |
 
-### Paso 1. Preparar el workspace
+## 1. Objetivos
 
-Crear o seleccionar un workspace de Microsoft Fabric con capacidad suficiente para ejecutar notebooks Spark.
+- Implementar una arquitectura Medallion utilizando tres Lakehouses.
+- Comprender la organización y el almacenamiento de datos en OneLake.
+- Desarrollar transformaciones de datos mediante notebooks PySpark.
+- Persistir los resultados en tablas Delta.
+- Construir una capa Gold mediante un modelo dimensional.
+- Orquestar los procesos mediante una canalización nativa de Microsoft Fabric.
+- Incorporar controles de calidad e integridad de datos.
+- Documentar la solución y mantener el código bajo control de versiones con Git.
 
-### Paso 2. Crear los Lakehouses
+## 2. Arquitectura de la solución
 
-Crear los siguientes Lakehouses:
+La solución implementa una arquitectura Medallion en Microsoft Fabric,
+organizada en tres capas: Bronze, Silver y Gold.
 
-- `LH_Bronze`: capa Bronze.
-- `LH_Silver`: capa Silver.
-- `LH_Gold`: capa Gold.
+![Arquitectura Medallion en Microsoft Fabric](docs/images/medallion-architecture.png)
 
-### Paso 3. Cargar los datos de origen
+| Capa | Lakehouse | Contenido |
+|---|---|---|
+| Bronze | `LH_Bronze` | Datos originales y tablas Bronze |
+| Silver | `LH_Silver` | Datos depurados y transformados |
+| Gold | `LH_Gold` | Modelo dimensional y tablas analíticas |
 
-Desde la carpeta `data/` del repositorio, cargar los siguientes ficheros CSV en el Lakehouse `LH_Bronze`:
+### Flujo de datos
 
-- `fabric_poc_sales.csv`
-- `fabric_poc_customers.csv`
+1. Ingesta de ficheros CSV.
+2. Persistencia de los datos originales en Bronze.
+3. Limpieza, transformación y validación en Silver.
+4. Construcción de hechos y dimensiones en Gold.
+5. Validación de calidad de las tablas Gold.
 
-Crear las tablas Delta correspondientes:
+## 3. Tecnologías utilizadas
+
+- **Microsoft Fabric:** plataforma unificada de analítica.
+- **OneLake:** almacenamiento unificado de datos.
+- **Lakehouse:** organización de los datos por capas.
+- **Delta Lake:** formato de almacenamiento transaccional.
+- **Apache Spark / PySpark:** procesamiento y transformación distribuida.
+- **Data Factory Pipelines:** orquestación de actividades.
+- **Git y GitHub:** control de versiones y documentación.
+- **Modelado dimensional:** organización de datos mediante hechos y dimensiones.
+
+## 4. Datos de origen e ingesta
+
+El laboratorio utiliza dos ficheros CSV ficticios incluidos en el repositorio:
+
+| Fichero | Descripción |
+|---|---|
+| `fabric_poc_sales.csv` | Datos de ventas |
+| `fabric_poc_customers.csv` | Datos de clientes |
+
+Los ficheros se encuentran en `data/` y se utilizan como origen de la capa Bronze.
+
+Las tablas generadas son:
 
 - `Bronze_Sales`
 - `Bronze_Customers`
 
-### Paso 4. Ejecutar el Notebook Bronze → Silver
+## 5. Procesamiento mediante notebooks PySpark
 
-Importar `notebooks/01_bronze_to_silver.ipynb` en Microsoft Fabric y asociarlo al Lakehouse correspondiente.
+El procesamiento se implementa mediante cuatro notebooks.
 
-Ejecutar el notebook para generar las siguientes tablas en `LH_Silver`:
+| Notebook | Responsabilidad |
+|---|---|
+| `00_orquestador.ipynb` | Orquestación alternativa mediante DAG y `notebookutils.notebook.runMultiple()` |
+| `01_bronze_to_silver.ipynb` | Limpieza, transformación y persistencia de Bronze a Silver |
+| `02_silver_to_gold.ipynb` | Construcción de las tablas de hechos y dimensiones |
+| `03_validar_gold.ipynb` | Comprobaciones de calidad e integridad de Gold |
+
+### Capa Silver
+
+Se generan las tablas:
 
 - `Sales_Bronze`
 - `Customers_Bronze`
 
-### Paso 5. Configurar y ejecutar el Notebook Silver → Gold
+En esta etapa se realizan transformaciones y controles de calidad sobre los datos de origen.
 
-Importar `notebooks/02_silver_to_gold.ipynb` y asociarlo a `LH_Gold`.
+### Capa Gold
 
-Antes de ejecutarlo, sustituir los marcadores de configuración de las rutas ABFSS por las rutas correspondientes a las tablas `Sales_Bronze` y `Customers_Bronze` del Lakehouse `LH_Silver`.
+Se construyen dos tablas Delta:
 
-Ejecutar el notebook para generar:
+- `FactSales`: información transaccional de ventas.
+- `DimCustomer`: información descriptiva de clientes.
 
-- `FactSales`
-- `DimCustomer`
+Ambas tablas comparten la clave `CustomerId`.
 
-### Paso 6. Configurar y ejecutar el pipeline
+Relación prevista para el modelo analítico:
 
-Recrear el pipeline `PL_Medallion_ETL` y configurar las actividades para ejecutar los dos notebooks en secuencia:
+`DimCustomer[CustomerId]` (1) → `FactSales[CustomerId]` (*)
 
-1. `NB_Bronze_to_Silver`
-2. `NB_Silver_to_Gold`
+La creación y configuración del modelo semántico de Power BI no forma parte del alcance de esta PoC.
 
-La segunda actividad debe ejecutarse únicamente cuando la primera finalice correctamente.
+## 6. Orquestación mediante Data Factory Pipeline
 
-### Paso 7. Validar los resultados
+La canalización principal de Microsoft Fabric se denomina:
 
-Comprobar que las seis tablas se han generado correctamente y que sus recuentos coinciden con los resultados esperados del laboratorio.
+`PL_DP600_Orchestration`
 
-| Capa | Tabla | Registros esperados |
+Coordina la ejecución secuencial de los tres notebooks de transformación y validación.
+
+| Actividad | Notebook asociado | Responsabilidad |
+|---|---|---|
+| `ACT_01_Bronze_to_Silver` | `01_bronze_to_silver` | Transformación Bronze → Silver |
+| `ACT_02_Silver_to_Gold` | `02_silver_to_gold` | Construcción de Gold |
+| `ACT_03_Validar_Gold` | `03_validar_gold` | Validación de calidad |
+
+Las dependencias entre actividades utilizan la condición `Succeeded`. Por tanto, cada etapa posterior solo se ejecuta cuando la anterior finaliza correctamente.
+
+### Orquestación alternativa mediante DAG
+
+El notebook `00_orquestador.ipynb` implementa una alternativa programática de orquestación mediante `notebookutils.notebook.runMultiple()`.
+
+Se ejecuta independientemente de la canalización nativa y permite demostrar otra modalidad de coordinación de notebooks en Fabric.
+
+## 7. Validaciones de calidad de datos
+
+El notebook `03_validar_gold.ipynb` realiza nueve comprobaciones:
+
+1. FactSales no está vacía.
+2. DimCustomer no está vacía.
+3. FactSales no contiene claves nulas.
+4. DimCustomer no contiene CustomerId nulos.
+5. SaleId no presenta duplicados.
+6. CustomerId no presenta duplicados en DimCustomer.
+7. No existen ventas sin cliente asociado.
+8. Quantity es mayor que cero y UnitPrice es mayor o igual que cero.
+9. TotalAmount coincide con Quantity multiplicado por UnitPrice.
+
+Si alguna comprobación falla, el notebook genera una excepción. La actividad de validación se considera fallida y la canalización no puede completar correctamente su ejecución.
+
+## 8. Resultados del laboratorio
+
+El conjunto de datos utilizado contiene 10 ventas y 6 clientes.
+
+| Capa | Tabla | Registros |
 |---|---|---:|
 | Bronze | `Bronze_Sales` | 10 |
 | Bronze | `Bronze_Customers` | 6 |
@@ -76,142 +166,87 @@ Comprobar que las seis tablas se han generado correctamente y que sus recuentos 
 | Gold | `FactSales` | 10 |
 | Gold | `DimCustomer` | 6 |
 
-**Nota:** los nombres de los Lakehouses, las rutas ABFSS y las configuraciones del entorno deben adaptarse a cada workspace de Microsoft Fabric.
+La canalización `PL_DP600_Orchestration` se ejecutó satisfactoriamente en Microsoft Fabric el 18 de noviembre de 2026, completando las tres actividades.
 
-## 1. Objetivos del proyecto
+Las nueve comprobaciones de calidad de Gold finalizaron correctamente en la ejecución validada.
 
-- Implementar una arquitectura Medallion con tres Lakehouses.
-- Transformar y validar datos mediante PySpark.
-- Persistir los datos en formato Delta Lake.
-- Construir una capa Gold con tablas de hechos y dimensiones.
-- Orquestar las transformaciones mediante un Data Factory Pipeline.
-- Documentar el flujo y las decisiones técnicas.
+## 9. Guía de reproducción
 
-## 2. Arquitectura
+Para reproducir el laboratorio en un entorno propio de Microsoft Fabric:
 
-La solución se organiza en tres capas de datos independientes:
+### Paso 1. Preparar el workspace
 
-| Capa | Lakehouse | Contenido |
-|---|---|---|
-| Bronze | `LH_Bronze` | CSV originales y tablas `Bronze_Sales`, `Bronze_Customers` |
-| Silver | `LH_Silver` | Tablas depuradas `Sales_Bronze`, `Customers_Bronze` |
-| Gold | `LH_Gold` | Modelo dimensional: `FactSales`, `DimCustomer` |
+Crear o seleccionar un workspace de Microsoft Fabric con capacidad habilitada para ejecutar notebooks Spark.
 
-### Diagrama de arquitectura
+### Paso 2. Crear los Lakehouses
 
-```mermaid
-flowchart TD
-    A["CSV de ventas y clientes"] --> B["LH_Bronze - Bronze"]
-    B --> C["NB_Bronze_to_Silver"]
-    C --> D["LH_Silver - Silver"]
-    D --> E["NB_Silver_to_Gold"]
-    E --> F["LH_Gold - Gold"]
-    F --> G["FactSales"]
-    F --> H["DimCustomer"]
-    G --> I["Modelo semántico / Power BI"]
-    H --> I
+Crear los siguientes Lakehouses:
 
-    P["PL_Medallion_ETL"] -. "Orquesta" .-> C
-    P -. "Orquesta tras éxito" .-> E
-```
+- `LH_Bronze`
+- `LH_Silver`
+- `LH_Gold`
 
-El pipeline `PL_Medallion_ETL` ejecuta los notebooks en secuencia, utilizando la dependencia de éxito entre ambas actividades.
+### Paso 3. Cargar los datos de origen
 
-## 3. Tecnologías utilizadas
-
-- **Microsoft Fabric:** plataforma de analítica.
-- **OneLake:** almacenamiento unificado de datos.
-- **Lakehouse:** organización de datos por capas.
-- **Delta Lake:** persistencia transaccional de tablas.
-- **Apache Spark / PySpark:** lectura, transformación y escritura de datos.
-- **Data Factory Pipelines:** orquestación del proceso ETL.
-- **Modelado dimensional:** separación de hechos y dimensiones.
-
-## 4. Datos de origen e ingesta en Bronze
-
-El proyecto utiliza dos ficheros CSV ficticios incluidos en el repositorio:
-
-| Fichero | Descripción |
-|---|---|
-| `fabric_poc_sales.csv` | Datos de ventas |
-| `fabric_poc_customers.csv` | Datos de clientes |
-
-Los ficheros se encuentran en la carpeta `data/` y constituyen la fuente inicial del proceso de ingesta.
-
-### Carga de los ficheros en Microsoft Fabric
-
-Para reproducir la ingesta inicial:
-
-1. Abrir el workspace de Microsoft Fabric.
-2. Acceder al Lakehouse `LH_Bronze`.
-3. Localizar la sección **Files**.
-4. Cargar los ficheros CSV de la carpeta `data/` del repositorio.
-5. Utilizar la opción de carga a tablas para crear las tablas Delta correspondientes.
-
-Las tablas resultantes de la capa Bronze son:
+Cargar los dos ficheros CSV de la carpeta `data/` en el Lakehouse Bronze y generar las tablas:
 
 - `Bronze_Sales`
 - `Bronze_Customers`
 
-Esta capa conserva los datos originales y sirve como punto de partida para las transformaciones posteriores.
+### Paso 4. Configurar y ejecutar Bronze → Silver
 
-## 5. Flujo de datos
+Importar `01_bronze_to_silver.ipynb`, revisar la configuración de los Lakehouses y ejecutar el notebook.
 
-El procesamiento se divide en las siguientes etapas:
+Comprobar la creación de:
 
-1. **Ingesta:** carga de los CSV originales de ventas y clientes.
-2. **Bronze:** persistencia de los datos de aterrizaje en tablas Delta.
-3. **Silver:** conversión de tipos, eliminación de duplicados, validación de campos obligatorios y aplicación de reglas de calidad.
-4. **Gold:** selección y organización de los datos en tablas de hechos y dimensiones.
-5. **Orquestación:** ejecución secuencial de los notebooks mediante el pipeline.
+- `Sales_Bronze`
+- `Customers_Bronze`
 
-### Notebooks
+### Paso 5. Configurar y ejecutar Silver → Gold
 
-| Notebook | Responsabilidad |
-|---|---|
-| `01_bronze_to_silver.ipynb` | Limpieza, validación y transformación de los datos Bronze a Silver |
-| `02_silver_to_gold.ipynb` | Construcción de las tablas de hechos y dimensiones en Gold |
+Importar `02_silver_to_gold.ipynb` y revisar las referencias a las tablas de Silver y el destino Gold.
 
-## 6. Modelo dimensional
+Adaptar las rutas ABFS o la configuración del entorno cuando sea necesario.
 
-La capa Gold contiene dos tablas Delta:
+Ejecutar el notebook y comprobar la generación de:
 
-- **FactSales:** datos transaccionales de ventas.
-- **DimCustomer:** información descriptiva de clientes.
+- `FactSales`
+- `DimCustomer`
 
-Ambas tablas comparten la clave `CustomerId` y están preparadas para su integración en un modelo semántico de Power BI.
+### Paso 6. Validar Gold
 
-Relación prevista:
+Importar y ejecutar `03_validar_gold.ipynb`.
 
-`DimCustomer[CustomerId]` (1) → `FactSales[CustomerId]` (*)
+Comprobar que las nueve validaciones finalizan correctamente.
 
-La creación del modelo semántico y la configuración de las relaciones se abordarán en una siguiente fase del proyecto.
+### Paso 7. Configurar la canalización
 
-## 7. Resultados del laboratorio
+Crear `PL_DP600_Orchestration` con tres actividades de tipo Notebook:
 
-El proceso se ha ejecutado correctamente y ha generado las siguientes tablas:
+1. `ACT_01_Bronze_to_Silver`
+2. `ACT_02_Silver_to_Gold`
+3. `ACT_03_Validar_Gold`
 
-| Capa | Tabla | Registros |
-|---|---|---:|
-| Bronze | Bronze_Sales | 10 |
-| Bronze | Bronze_Customers | 6 |
-| Silver | Sales_Bronze | 10 |
-| Silver | Customers_Bronze | 6 |
-| Gold | FactSales | 10 |
-| Gold | DimCustomer | 6 |
+Configurar las dependencias mediante `Succeeded` y adaptar los identificadores de los notebooks y workspace al entorno propio.
 
-Los recuentos corresponden al conjunto de datos ficticio utilizado en el laboratorio.
+### Paso 8. Ejecutar y comprobar resultados
 
-## 8. Decisiones técnicas y consideraciones
+Ejecutar la canalización y comprobar que las tres actividades finalizan correctamente.
 
-- Se utilizan tres Lakehouses para separar responsabilidades y capas de procesamiento.
+La ejecución del notebook `00_orquestador.ipynb` es opcional, ya que demuestra un mecanismo alternativo de orquestación mediante DAG.
+
+**Nota:** los nombres de los Lakehouses, las rutas ABFS, los identificadores de workspace y las configuraciones de ejecución deben adaptarse al entorno de Microsoft Fabric donde se reproduzca el laboratorio.
+
+## 10. Decisiones técnicas y consideraciones
+
+- Se utilizan tres Lakehouses para separar las responsabilidades de cada capa.
 - Las tablas persistentes se almacenan en formato Delta.
-- Las transformaciones se implementan mediante notebooks PySpark.
+- Las transformaciones se implementan mediante PySpark.
 - Se ha utilizado `overwrite` para facilitar la reproducibilidad del laboratorio. En un entorno productivo sería necesario evaluar cargas incrementales, idempotencia y estrategias de actualización.
-- Los errores `TooManyRequestsForCapacity` (HTTP 430) observados durante las primeras ejecuciones evidenciaron las limitaciones de capacidad y concurrencia del entorno Trial. Finalmente, el pipeline se ejecutó correctamente.
-- Las rutas ABFS y configuraciones específicas del entorno no se incluyen en el repositorio.
+- El entorno Trial presentó inicialmente errores HTTP 430 (`TooManyRequestsForCapacity`) relacionados con las limitaciones de capacidad y recursos Spark. Tras ajustar la configuración de ejecución, la canalización pudo ejecutarse correctamente.
+- Las rutas y los identificadores específicos del workspace no se incluyen en el repositorio.
 
-## 9. Estructura del repositorio
+## 11. Estructura del repositorio
 
 ```text
 fabric-medallion-architecture/
@@ -220,26 +255,34 @@ fabric-medallion-architecture/
 ├── data/
 │   ├── fabric_poc_customers.csv
 │   └── fabric_poc_sales.csv
-├── notebooks/
-│   ├── 01_bronze_to_silver.ipynb
-│   └── 02_silver_to_gold.ipynb
 ├── docs/
 │   ├── architecture.md
 │   ├── data-flow.md
 │   ├── implementation-notes.md
+│   ├── notebook-orchestration.md
 │   └── images/
+│       └── medallion-architecture.png
+├── notebooks/
+│   ├── 00_orquestador.ipynb
+│   ├── 01_bronze_to_silver.ipynb
+│   ├── 02_silver_to_gold.ipynb
+│   └── 03_validar_gold.ipynb
 └── pipelines/
-    └── pipeline-design.md
+    ├── pipeline-design.md
+    └── PL_DP600_Orchestration.template.json
 ```
 
-## 10. Próximas mejoras
+## 12. Alcance y posibles evolutivos
 
-- Documentar las reglas de calidad y las transformaciones PySpark.
-- Añadir capturas de los Lakehouses y de las ejecuciones del pipeline.
-- Incorporar una dimensión calendario.
-- Implementar pruebas de calidad de datos.
-- Crear y configurar el modelo semántico de Power BI.
-- Explorar cargas incrementales y estrategias de actualización.
+Esta PoC se centra en demostrar los fundamentos de Microsoft Fabric Lakehouse, OneLake, Delta Lake, PySpark y la orquestación de procesos.
+
+Quedan fuera del alcance actual:
+
+- Creación y publicación de un modelo semántico de Power BI.
+- Informes y dashboards.
+- Cargas incrementales productivas.
+- Monitorización y alertas avanzadas.
+- Gestión de históricos y auditoría de ejecuciones.
 
 ---
 

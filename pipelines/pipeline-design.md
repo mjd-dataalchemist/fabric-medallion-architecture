@@ -28,9 +28,9 @@ ACT_03_Validar_Gold
 
 | Actividad | Notebook asociado | Responsabilidad |
 |---|---|---|
-| ACT_01_Bronze_to_Silver | 01_bronze_to_silver | Transformación de Bronze a Silver |
-| ACT_02_Silver_to_Gold | 02_silver_to_gold | Construcción de las tablas FactSales y DimCustomer |
-| ACT_03_Validar_Gold | 03_validar_gold | Validaciones de calidad de la capa Gold |
+| `ACT_01_Bronze_to_Silver` | `01_bronze_to_silver` | Transformación de Bronze a Silver |
+| `ACT_02_Silver_to_Gold` | `02_silver_to_gold` | Construcción de las tablas FactSales y DimCustomer |
+| `ACT_03_Validar_Gold` | `03_validar_gold` | Validaciones de calidad de la capa Gold |
 
 ## 3. Dependencias y control de ejecución
 
@@ -50,15 +50,17 @@ Configuración aplicada a las tres actividades:
 
 | Parámetro | Valor |
 |---|---|
-| Tipo de actividad | TridentNotebook |
+| Tipo de actividad | `TridentNotebook` |
 | Timeout | 12 horas |
 | Reintentos | 0 |
 | Intervalo de reintento | 30 segundos |
-| Session tag | DP600_MEDALLION |
-| Secure input | false |
-| Secure output | false |
+| Session tag | `DP600_MEDALLION` |
+| Secure input | `false` |
+| Secure output | `false` |
 
 Las tres actividades utilizan la misma etiqueta de sesión `DP600_MEDALLION`.
+
+El pipeline no tiene reintentos automáticos configurados en sus actividades. Esta configuración es independiente de los mecanismos de reintento implementados en el orquestador alternativo mediante Notebook.
 
 ## 5. Validación de calidad
 
@@ -82,7 +84,7 @@ Si alguna validación falla, el notebook genera una excepción y la actividad se
 
 La canalización puede ejecutarse manualmente mediante la opción Run de Microsoft Fabric.
 
-La programación recurrente (Schedule) es opcional y se configura por separado de una ejecución manual.
+La programación recurrente (Schedule) es una funcionalidad disponible en Fabric que puede configurarse por separado de una ejecución manual. No forma parte del alcance implementado en esta PoC.
 
 ## 7. Evidencia de ejecución
 
@@ -90,22 +92,30 @@ El 18 de noviembre de 2026 se realizó una ejecución satisfactoria de `PL_DP600
 
 | Actividad | Hora de inicio | Estado |
 |---|---|---|
-| ACT_01_Bronze_to_Silver | 12:50:24 | Correcto |
-| ACT_02_Silver_to_Gold | 12:51:56 | Correcto |
-| ACT_03_Validar_Gold | 12:52:48 | Correcto |
+| `ACT_01_Bronze_to_Silver` | 12:50:24 | Correcto |
+| `ACT_02_Silver_to_Gold` | 12:51:56 | Correcto |
+| `ACT_03_Validar_Gold` | 12:52:48 | Correcto |
 
 **Resultado:** las tres actividades finalizaron correctamente y la canalización alcanzó el estado Correcto.
 
-## 8. Relación con el orquestador mediante DAG
+## 8. Relación con el orquestador mediante Notebook
 
-El repositorio también incluye el notebook `00_orquestador.ipynb`, que implementa una alternativa de orquestación mediante DAG utilizando `notebookutils.notebook.runMultiple()`.
+El repositorio también incluye el notebook `00_orquestador.ipynb`, que implementa una alternativa de orquestación secuencial mediante `notebookutils.notebook.run()`.
 
-Este notebook se ha ejecutado de forma independiente, fuera de la canalización `PL_DP600_Orchestration`.
+Este notebook ejecuta de forma independiente los procesos de transformación y validación, respetando el siguiente orden:
+
+1. Bronze → Silver.
+2. Silver → Gold.
+3. Validación de Gold.
+
+La implementación incorpora reintentos y control de los resultados de cada ejecución.
+
+Este notebook se ejecuta de forma independiente, fuera de la canalización `PL_DP600_Orchestration`.
 
 Por tanto, se mantienen dos mecanismos diferenciados:
 
 - Orquestación nativa mediante Pipeline de Microsoft Fabric.
-- Orquestación mediante DAG desde un notebook PySpark.
+- Orquestación secuencial mediante Notebook, con reintentos y control de errores.
 
 La canalización `PL_DP600_Orchestration` es el mecanismo principal de ejecución del flujo de trabajo documentado en este proyecto.
 
@@ -117,4 +127,4 @@ No se incluyen identificadores reales en esta documentación para facilitar la r
 
 La configuración de actividades, dependencias y parámetros debe adaptarse al workspace donde se despliegue la solución.
 
-Nota: El archivo PL_DP600_Orchestration.template.json es una plantilla de referencia, no un JSON listo para importar directamente en Fabric. Los identificadores son marcadores y pueden requerirse metadatos adicionales según el método de despliegue.
+Nota: El archivo `PL_DP600_Orchestration.template.json` es una plantilla de referencia, no un JSON listo para importar directamente en Fabric. Los identificadores son marcadores y pueden requerirse metadatos adicionales según el método de despliegue.

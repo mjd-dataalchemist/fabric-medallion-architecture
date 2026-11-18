@@ -2,16 +2,23 @@
 
 ## Capacidad Spark y alta simultaneidad
 
-Durante la ejecución del Pipeline se observó `TooManyRequestsForCapacity` (HTTP 430) al crear una sesión Livy. El mensaje indica que la capacidad no podía admitir el nuevo trabajo Spark en ese momento; no debe interpretarse automáticamente como un defecto del código.
+Durante la ejecución del pipeline se observó el error `TooManyRequestsForCapacity` (HTTP 430) al intentar crear una sesión Livy.
 
-Se investigaron:
+El mensaje indicaba que la capacidad no podía admitir el nuevo trabajo Spark en ese momento. Por tanto, no debía interpretarse automáticamente como un defecto del código de los notebooks.
+
+Durante el diagnóstico se revisaron los siguientes aspectos:
+
 - Supervisión de ejecuciones.
 - Trabajos Spark activos y en cola.
-- Capacidad Trial compartida.
+- Limitaciones de la capacidad Trial compartida.
 - Configuración de alta simultaneidad.
-- Requisitos de compatibilidad para compartir sesiones: Lakehouse predeterminado, configuración Spark y bibliotecas.
+- Requisitos de compatibilidad para compartir sesiones, como el Lakehouse predeterminado, la configuración Spark y las bibliotecas.
 
-La ejecución final del Pipeline se completó correctamente tras ajustar la configuración del laboratorio. Añadir capturas y detalles técnicos no sensibles en una futura revisión.
+Para facilitar la ejecución en el entorno Trial se redujo la configuración de recursos del Starter Pool, limitando los nodos y ejecutores a uno.
+
+Tras este ajuste, el pipeline se ejecutó correctamente y las tres actividades finalizaron satisfactoriamente.
+
+Esta incidencia pone de manifiesto que la disponibilidad de recursos de la capacidad puede condicionar la ejecución de trabajos Spark en Microsoft Fabric, incluso cuando el código es correcto.
 
 ## Reproducción del laboratorio en Microsoft Fabric
 
@@ -19,41 +26,48 @@ La ejecución final del Pipeline se completó correctamente tras ajustar la conf
 
 La arquitectura utiliza tres Lakehouses independientes:
 
-- `LH_Bronze`: almacenamiento de datos originales.
-- `LH_Silver`: almacenamiento de datos depurados y transformados.
-- `LH_Gold`: almacenamiento de tablas preparadas para el análisis.
+- `LH_Bronze`: almacenamiento de los datos originales.
+- `LH_Silver`: almacenamiento de los datos depurados y transformados.
+- `LH_Gold`: almacenamiento de las tablas preparadas para el análisis.
 
 ### Configuración de los notebooks
 
-Cada notebook utiliza como Lakehouse predeterminado el destino de sus escrituras:
+Los notebooks de transformación utilizan como Lakehouse predeterminado el destino de sus escrituras.
 
 | Notebook | Lakehouse predeterminado | Origen | Destino |
 |---|---|---|---|
 | `01_bronze_to_silver.ipynb` | `LH_Silver` | `LH_Bronze` | `LH_Silver` |
 | `02_silver_to_gold.ipynb` | `LH_Gold` | `LH_Silver` | `LH_Gold` |
+| `03_validar_gold.ipynb` | `LH_Gold` | `LH_Gold` | No escribe tablas de salida |
 
 Es importante configurar correctamente el Lakehouse predeterminado antes de ejecutar cada notebook. Las operaciones `saveAsTable()` sin una ruta explícita escriben las tablas en el Lakehouse predeterminado.
+
+El notebook `00_orquestador` constituye una alternativa de orquestación mediante `notebookutils.notebook.runMultiple()`, independiente del pipeline nativo.
 
 ### Lectura entre Lakehouses
 
 Para acceder a tablas de un Lakehouse distinto del predeterminado se utilizan rutas ABFSS a las carpetas Delta de origen.
 
-En el notebook `02_silver_to_gold.ipynb`, las rutas de `Sales_Bronze` y `Customers_Bronze` se representan mediante marcadores genéricos. Cada usuario debe sustituirlos por las rutas de su propio entorno Fabric.
+En el notebook `02_silver_to_gold.ipynb`, las rutas de `Sales_Bronze` y `Customers_Bronze` dependen del entorno Fabric.
 
-No se deben publicar rutas ABFSS que contengan identificadores específicos del workspace o del entorno personal.
+No se deben publicar rutas ABFSS que contengan identificadores específicos del workspace o del entorno personal. Para reproducir el laboratorio, cada usuario debe adaptar las referencias a su propio entorno.
 
-### Resultados de validación
+### Resultados de ejecución y validación
 
-La ejecución de los dos notebooks ha generado los siguientes resultados:
+La ejecución satisfactoria del pipeline ha generado las siguientes tablas y recuentos:
 
-| Tabla | Registros |
-|---|---:|
-| `Bronze_Sales` | 10 |
-| `Bronze_Customers` | 6 |
-| `Sales_Bronze` | 10 |
-| `Customers_Bronze` | 6 |
-| `FactSales` | 10 |
-| `DimCustomer` | 6 |
+| Capa | Tabla | Registros |
+|---|---|---:|
+| Bronze | `Bronze_Sales` | 10 |
+| Bronze | `Bronze_Customers` | 6 |
+| Silver | `Sales_Bronze` | 10 |
+| Silver | `Customers_Bronze` | 6 |
+| Gold | `FactSales` | 10 |
+| Gold | `DimCustomer` | 6 |
+
+El notebook `03_validar_gold` ejecuta nueve controles de calidad sobre las tablas Gold. En la ejecución validada, todos los controles finalizaron correctamente.
+
+La validación se realiza mediante comprobaciones en el notebook y excepciones cuando alguna condición no se cumple. No se genera una tabla de auditoría persistente.
 
 ### Incidencia durante la reproducción
 
