@@ -1,0 +1,69 @@
+
+{
+  "name": "PL_DP600_Orchestration",
+  "properties": {
+    "activities": [
+      {
+        "name": "ACT_01_Bronze_to_Silver",
+        "type": "TridentNotebook",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "<NOTEBOOK_01_ID>",
+          "workspaceId": "<WORKSPACE_ID>",
+          "sessionTag": "DP600_MEDALLION"
+        }
+      },
+      {
+        "name": "ACT_02_Silver_to_Gold",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "ACT_01_Bronze_to_Silver",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "<NOTEBOOK_02_ID>",
+          "workspaceId": "<WORKSPACE_ID>",
+          "sessionTag": "DP600_MEDALLION"
+        }
+      },
+      {
+        "name": "ACT_03_Validar_Gold",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "ACT_02_Silver_to_Gold",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "<NOTEBOOK_03_ID>",
+          "workspaceId": "<WORKSPACE_ID>",
+          "sessionTag": "DP600_MEDALLION"
+        }
+      }
+    ]
+  }
+}
